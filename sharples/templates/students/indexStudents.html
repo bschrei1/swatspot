@@ -1,0 +1,12 @@
+{% if latest_update %}
+    <ul>
+    
+				
+        <li><a href="/sharples/{{ latest_update.id }}/">{{ latest_update.when }}</a></li>
+				
+				<li><a href="/sharples/{{ latest_update.id }}/">{{ latest_update.getDay }}</a></li>
+    
+    </ul>
+{% else %}
+    <p>Sharples is not available.</p>
+{% endif %}
