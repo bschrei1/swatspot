@@ -60,39 +60,55 @@ def students(request):
     template = loader.get_template('students/indexStudents.html')
     latest_update_list = Update.objects.order_by('-when')
     percentileOfLatestInterval = computePercentile(latest_update_list, 500)
-    context = RequestContext(request,{'latest_update': latest_update, 'percentile':percentileOfLatestInterval,
-        
-    
-})
+    context = RequestContext(request,{'latest_update': latest_update, 'percentile':percentileOfLatestInterval, 'interval': Interval(endTime=datetime.datetime.now(), startTime=datetime.datetime.now(), numUpdates=6)})
+
     return HttpResponse(template.render(context))
+
 def computePercentile (sorted_update_list, paramSeconds):
     countedUpdates = 1
-    sortedIntervals = Interval.objects.order_by('-numUpdates') #descending order    
-    currTime = datetime.datetime.now()
+    #countedUpdates = 0 #TODO comment out this line
+    sortedIntervals = Interval.objects.order_by('-numUpdates') #descending order: newest at pos 0  
+    print "len sorted intervals line 70", len(sortedIntervals)
+    #currTime = datetime.datetime.now() #TODO: uncomment this line
+    currTime = datetime.datetime(2014, 11, 25, 06, 25, 53) #TODO: delete this line (was for testing purposes)
+    #currTime = sorted_update_list[0].when.replace(tzinfo=None) #get the most current update in the db
+    print currTime, "line 75 currTime"
     intEndTime = currTime #default endTime
+
+    print sorted_update_list
     for update in sorted_update_list:
-        #if update occured less than paramSeconds before currUpdate
         updateCpy = update
         naive = updateCpy.when.replace(tzinfo=None)
-        if (currTime - naive).seconds < paramSeconds :
-            countedUpdates += 1
-            if countedUpdates == 2:
+        #print naive
+        #print (currTime - naive).seconds, "line 83 currTime -update.when", (currTime - naive).days,
+        
+        #if update occured less than paramSeconds before currUpdate
+        if (currTime - naive).seconds < paramSeconds and (currTime - naive).days >= 0:
+            print (currTime - naive).seconds, "line 83 currTime -update.when"
+            countedUpdates += 1 #add to the number of swipes that happened in that interval
+            if countedUpdates >= 2:
                 intEndTime = update.when
-        elif countedUpdates >=1: #if there are updates besides currUpdate
-            currInterval = Interval(endTime = intEndTime, startTime = currTime, numUpdates = countedUpdates)
-            break
+        elif countedUpdates >=1: #if we have finished checking this interval
+            currInterval = Interval(endTime = intEndTime, startTime = currTime, numUpdates = countedUpdates-2)
+            break #leave for loop once we are done checking
 
         
     position = 0 #compare the interval with the most updates first
         
     for interval in sortedIntervals: #compute swipes percentile of currInterval
+        #print "in for loop line 90"
+        #print currInterval.numUpdates, "numUpdates line 91"
+        #print interval.numUpdates, "interval numUpdates line 92"
         if currInterval.numUpdates < interval.numUpdates:
+            print currInterval.numUpdates, interval.numUpdates, "line 103"
             position +=1
 
         else:
             break
+    print position
 
     percentile = float(len(sortedIntervals)-position)/len(sortedIntervals)
+    #percentile = percentile -.01
     print percentile
     return percentile
 
