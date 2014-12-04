@@ -8,10 +8,12 @@ class Update(models.Model):
    #timeOfDay = models.TimeField() #haven't decided whether it will be military
    #swipes = models.AutoField()
    when = models.DateTimeField('time of swipe')
+   eventType = models.CharField(max_length=200)
+
    def __str__(self):
        day = self.when.strftime('%A')
        time = self.when.strftime('%H:%M:%S')
-       return 'Event on %s at %s' % (day, time)
+       return '%s on %s at %s' % (self.eventType, day, time)
 
    def getDay(self):
        return self.when.strftime('%A')
