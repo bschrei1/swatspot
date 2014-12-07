@@ -57,7 +57,7 @@ def students(request):
     latest_update = updates[0]#Update.objects.get(id=len(latest_update_list))
     print latest_update
     
-    template = loader.get_template('students/indexStudents.html')
+    template = loader.get_template('students/indexstudents.html')
     latest_update_list = Update.objects.order_by('-when')
     percentileOfLatestInterval = computePercentile(latest_update_list, 500)
     context = RequestContext(request,{'latest_update': latest_update, 'percentile':percentileOfLatestInterval, 'interval': Interval(endTime=datetime.datetime.now(), startTime=datetime.datetime.now(), numUpdates=6)})
