@@ -64,7 +64,7 @@ def students(request):
 def sharplesIsOpen2(allUpdates):
     if allUpdates[0].eventType == "closing": #if the most recent event was a closing
         return False
-    print "sharples is open line 35"
+    #print "sharples is open line 35"
     return True #otherwise Sharples is open
 
 
@@ -92,7 +92,7 @@ def formatTimeData(allUpdates):
     for update in allUpdates: 
         newUpdate = Update(when = update.when-datetime.timedelta(hours =5), eventType = update.eventType)
         allUpdatesCopy.append(newUpdate)
-    print allUpdatesCopy, "/nline 93!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    #print allUpdatesCopy, "/nline 93!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     return allUpdatesCopy
         
 
@@ -107,7 +107,7 @@ def createDeathEvents(allUpdates, paramSeconds):
         if update.eventType != "swipe": #only create death events after swipes
             continue
         if update.when.isoweekday()==7 or update.when.isoweekday() == 6: #if Sunday or Saturday, Sharples closes at 8 pm
-            print "here"
+            #print "here"
             closingTime = datetime.datetime(update.when.year, update.when.month, update.when.day, 18, 30, 00) #entries are in miliary time
         else: #week day closes at 8:00
             closingTime = datetime.datetime(update.when.year, update.when.month, update.when.day, 20, 00, 00)
@@ -121,7 +121,7 @@ def createDeathEvents(allUpdates, paramSeconds):
     
     for swipeDeath in deathsList:
         allUpdates.append(swipeDeath)
-    newUpdatesList = [] #TODO delete the following lines if they doesn't work  
+    newUpdatesList = [] #TODO delete the following lines if they don't work  
     for update in allUpdates:
         naive = update.when.replace(tzinfo = None) 
         newUpdate = Update(when = naive, eventType = update.eventType)
@@ -181,5 +181,18 @@ def computePercentile(numCurrRecentUpdates, elapsedTimeDict):
 def detail(request, update_id):
     return HttpResponse("You're looking at update %s." % update_id)
 
+#enters an update of eventType opening when a cer
+def opening(request):
+    openUpdate = Update(when=datetime.datetime.now(),eventType = "opening")
+    openUpdate.save()
 
-# Create your views here.
+    latest_update_list = Update.objects.order_by('-when')[:15] 
+    template = loader.get_template('sharples/index.html')
+    context = RequestContext(request,{'latest_update_list': latest_update_list,})
+    return HttpResponse(template.render(context))
+
+
+def closing(request):
+    closeUpdate = Update(when=datetime.datetime.now(),eventType = "closing")
+    closeUpdate.save()
+
