@@ -9,108 +9,174 @@ def index(request):
     
     
     currTime= datetime.datetime.now()
-    latestUpdateList= Update.objects.order_by('-when')
+    latestUpdateList= Update.objects.order_by('-when')#new to old
     secondLatestUpdate=latestUpdateList[0]
-    newUpdate = Update(when=currTime)
+    newUpdate = Update(when=currTime, eventType = "swipe")
     newUpdate.save()
 
-    latest_interval_list = Interval.objects.order_by('-startTime')
+    
 
     latest_update_list = Update.objects.order_by('-when')[:15] 
-    # chose 5, but I was not sure how many updates I entered into the DB
-    #need to call computeInterval here
     template = loader.get_template('sharples/index.html')
     context = RequestContext(request,{'latest_update_list': latest_update_list,})
     return HttpResponse(template.render(context))
-"""    
-    percentile = computeInterval(15)
-    # chose 5, but I was not sure how many updates I entered into the DB
-    template = loader.get_template('sharples/index.html')
-    context = RequestContext(request,{'percentile': percentile})
-    return HttpResponse(template.render(context))
 
-def computeInterval(paramSeconds):
-    #compute an interval containing the number of swipes between the time
-    #of request and paramSeconds, a parameterized amount of time.
-    currTime = datetime.datetime.now()
-    sorted_update_list = Update.objects.order_by('-when')
-    #currTime = sorted_update_list[0]
-    countedUpdates = 1  # the number of updates in a time interval
-    intEndTime = currTime #default endTime of the interval
-    
-    for update in sorted_update_list:
-        #if update occured less than paramSeconds before currUpdate
-        if (currTime - update.when).seconds < paramSeconds :
-            countedUpdates += 1
-            if countedUpdates == 2:
-                intEndTime = update.when
-        else if countedUpdates > 1: #if there are updates besides currUpdate
-            currInterval = Interval(endTime = intEndTime, startTime = currTime, numUpdates = countedUpdates)
-            currInterval.save()
-            break
-        """
-    
+
+
+"""This program computes the crowdedness percentile of Sharples based on the 
+time of an HTTP request to our site. It looks through all the historical data and sees which swipes occured within a parametrized amount of time, paramSeconds, which is defined above. It then looks through the database and computes the amount of elapsed time such that there were fewer or as many swipes within this amount of time (i.e. computes the amount of time such that there were fewer or as many people in the building). Maybe we can extend the application beyond Sharples, but for the sake of simplicity, I write comments as if it only applies to Sharples.
+
+Ben Schreiber 12/6/14
+"""
+
 def students(request):
-    print "called"
-    #latest_update_list = Update.objects.all()
-    updates = Update.objects.order_by('-when')
-    latest_update = updates[0]#Update.objects.get(id=len(latest_update_list))
-    print latest_update
+    paramSeconds = 2400 #40 mintutes
+    allUpdates = Update.objects.all() #Django command to retrieve all Update events in its database
+    allUpdates = allUpdates.order_by('-when') #sort newest to oldest
+    sharplesIsOpen = sharplesIsOpen2(allUpdates) #see if Sharples is currently open
+    if not sharplesIsOpen:   #if sharples is closed
+        
+        percentile =0
+        percentileComplement = 1   #message, crowdedness percentile, 1 - crowdednes percentile
+    else:
+        allUpdates = formatTimeData(allUpdates) 
+        (numCurrRecentUpdates, httpRequestTime) = computeCurrRecentUpdates(allUpdates, paramSeconds) #currRecentUpdates= list of swipes w/in paramSeconds of httpRequestTime
     
-    template = loader.get_template('students/indexstudents.html')
-    latest_update_list = Update.objects.order_by('-when')
-    percentileOfLatestInterval = computePercentile(latest_update_list, 500)
-    context = RequestContext(request,{'latest_update': latest_update, 'percentile':percentileOfLatestInterval, 'interval': Interval(endTime=datetime.datetime.now(), startTime=datetime.datetime.now(), numUpdates=6)})
+    
+        elapsedTimeDict = {} #keys are number of people in Sharples, values are elapsed time in seconds such that this has been the case
+        elapsedTimeDict[0] = 0 #begin with 0 minutes of 0 people
+    
+        newUpdate = Update(when = httpRequestTime, eventType = "httpRequest") #event signaling the time of the http request i.e when this view is called
+        allUpdates.append(newUpdate)
 
+        allUpdates = createDeathEvents(allUpdates, paramSeconds)
+        elapsedTimeDict = createElapsedTimeDict(allUpdates, paramSeconds, httpRequestTime) #dict w/ number of swipes as keys, seconds elaspsed as values
+        percentile = 100*computePercentile(numCurrRecentUpdates, elapsedTimeDict)
+        
+        percentileComplement = 1 - percentile
+    
+    context = RequestContext(request,{'sharplesIsOpen': sharplesIsOpen, 'percentile': percentile,})
+    template = loader.get_template('students/indexstudents.html')
     return HttpResponse(template.render(context))
 
-def computePercentile (sorted_update_list, paramSeconds):
-    countedUpdates = 1
-    #countedUpdates = 0 #TODO comment out this line
-    sortedIntervals = Interval.objects.order_by('-numUpdates') #descending order: newest at pos 0  
-    print "len sorted intervals line 70", len(sortedIntervals)
-    #currTime = datetime.datetime.now() #TODO: uncomment this line
-    currTime = datetime.datetime(2014, 11, 25, 06, 25, 53) #TODO: delete this line (was for testing purposes)
-    #currTime = sorted_update_list[0].when.replace(tzinfo=None) #get the most current update in the db
-    print currTime, "line 75 currTime"
-    intEndTime = currTime #default endTime
 
-    print sorted_update_list
-    for update in sorted_update_list:
-        updateCpy = update
-        naive = updateCpy.when.replace(tzinfo=None)
-        #print naive
-        #print (currTime - naive).seconds, "line 83 currTime -update.when", (currTime - naive).days,
+#Returns boolean whether Sharples is open (1=open, 0=closed)   
+def sharplesIsOpen2(allUpdates):
+    if allUpdates[0].eventType == "closing": #if the most recent event was a closing
+        return False
+    print "sharples is open line 35"
+    return True #otherwise Sharples is open
+
+
+
+
+#returns the number of updates that occured within paramSeconds of the time of the HTTP request
+def computeCurrRecentUpdates(allUpdates, paramSeconds):
+    numCurrRecentUpdates = 0 #number of updates that occured within paramSeconds of currTime
+    currTime = datetime.datetime.now()
+    for update in allUpdates:
+        naive = update.when.replace(tzinfo = None) #django datetime objects are UTC by default
+        timeDiff = (currTime-naive).total_seconds()
+        if timeDiff <= paramSeconds:
+            numCurrRecentUpdates+=1
+            
+            #TODO: add break statement here
+    return (numCurrRecentUpdates, currTime)
+
+
+
+
+#subtracts 5 hours off of each event in allUpdates to convert to EST from UTC. Returns new list of updates
+def formatTimeData(allUpdates):
+    allUpdatesCopy = [] #will insertUpdates of EST times in this list
+    for update in allUpdates: 
+        newUpdate = Update(when = update.when-datetime.timedelta(hours =5), eventType = update.eventType)
+        allUpdatesCopy.append(newUpdate)
+    print allUpdatesCopy, "/nline 93!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    return allUpdatesCopy
         
-        #if update occured less than paramSeconds before currUpdate
-        if (currTime - naive).seconds < paramSeconds and (currTime - naive).days >= 0:
-            print (currTime - naive).seconds, "line 83 currTime -update.when"
-            countedUpdates += 1 #add to the number of swipes that happened in that interval
-            if countedUpdates >= 2:
-                intEndTime = update.when
-        elif countedUpdates >=1: #if we have finished checking this interval
-            currInterval = Interval(endTime = intEndTime, startTime = currTime, numUpdates = countedUpdates-2)
-            break #leave for loop once we are done checking
 
+
+
+
+
+#creates swipeDeath updates which tell us when a person has left the building. Returns list allUpdates with swipeDeaths included
+def createDeathEvents(allUpdates, paramSeconds):
+    deathsList = [] #list that will store swipe deaths as we loop through allUpdates
+    for update in allUpdates:
+        if update.eventType != "swipe": #only create death events after swipes
+            continue
+        if update.when.isoweekday()==7 or update.when.isoweekday() == 6: #if Sunday or Saturday, Sharples closes at 8 pm
+            print "here"
+            closingTime = datetime.datetime(update.when.year, update.when.month, update.when.day, 18, 30, 00) #entries are in miliary time
+        else: #week day closes at 8:00
+            closingTime = datetime.datetime(update.when.year, update.when.month, update.when.day, 20, 00, 00)
+        naive = update.when.replace(tzinfo = None) 
+        timeTillClosing = (closingTime-naive).total_seconds() #number of seconds between update and the closing time
         
-    position = 0 #compare the interval with the most updates first
-        
-    for interval in sortedIntervals: #compute swipes percentile of currInterval
-        #print "in for loop line 90"
-        #print currInterval.numUpdates, "numUpdates line 91"
-        #print interval.numUpdates, "interval numUpdates line 92"
-        if currInterval.numUpdates < interval.numUpdates:
-            print currInterval.numUpdates, interval.numUpdates, "line 103"
-            position +=1
+        if timeTillClosing > paramSeconds: #if not paramSeconds from closingTime create a death event
+            deathTime = naive + datetime.timedelta(seconds = paramSeconds) # time of death is paramSeconds after swipe occured
+            newDeath = Update(when = deathTime, eventType = "swipeDeath") 
+            deathsList.append(newDeath)#changed
+    
+    for swipeDeath in deathsList:
+        allUpdates.append(swipeDeath)
+    newUpdatesList = [] #TODO delete the following lines if they doesn't work  
+    for update in allUpdates:
+        naive = update.when.replace(tzinfo = None) 
+        newUpdate = Update(when = naive, eventType = update.eventType)
+        newUpdatesList.append(newUpdate)
+    ####################################end new
+    newUpdatesList.sort(key=lambda x: x.when, reverse=False)#sort by oldest (position 0) to newest (position len(list)-1)
+    allUpdates = newUpdatesList
+    
+    return allUpdates
 
-        else:
-            break
-    print position
 
-    percentile = float(len(sortedIntervals)-position)/len(sortedIntervals)
-    #percentile = percentile -.01
-    print percentile
-    return percentile
+
+
+#loops through allUpdates and computes the amount of time we have seen certain numbers of people in the building. 
+#Returns the elapsedTimeDict storing this information: keys are number of people, values are time elapsed in seconds (believe that they're floats)
+def createElapsedTimeDict(allUpdates, paramSeconds, httpRequestTime):
+    elapsedTimeDict = {}
+    for update in allUpdates:
+        if update.eventType == "opening":
+            iterativeLivingUpdates = 0 #the number of students in sharples at this time in history
+            timeOfPreviousUpdate = update.when
+        else: #swipe swipeDeath or closing
+            timeSincePreviousUpdate = (update.when-timeOfPreviousUpdate).total_seconds()
+            if iterativeLivingUpdates in elapsedTimeDict.keys(): #if we've seen this number of people in Sharples before
+                elapsedTimeDict[iterativeLivingUpdates] = timeSincePreviousUpdate + elapsedTimeDict[iterativeLivingUpdates]
+            else: #we have not seen this number of people in Sharples before
+                elapsedTimeDict[iterativeLivingUpdates] = timeSincePreviousUpdate
+            if update.eventType == "swipe":
+                iterativeLivingUpdates += 1 #add 1 to iterativeLivingUpdates for swipe
+            elif update.eventType == "swipeDeath":
+                iterativeLivingUpdates -= 1
+            #for closing or httpRequest events we don't add to iterativeLivingUpdates
+            timeOfPreviousUpdates = update.when
+    return elapsedTimeDict
+
+
+
+
+                
+#computes the amount of time elapsed s.t. there were fewer or just as many people in Sharples as there are now
+def computePercentile(numCurrRecentUpdates, elapsedTimeDict):
+    allKeys = elapsedTimeDict.keys()
+    #numCurrRecentUpdates = len(currRecentUpdates) #estimated number of people in Sharples now
+    timeEquallyOrLessCrowded = 0 #will compute this value in for loop (will be in seconds)
+    totalTimeElapsed = 0 # will compute this value in for loop, as well (also in seconds)
+    
+    for key in allKeys:
+        if key <= numCurrRecentUpdates:
+            timeEquallyOrLessCrowded += elapsedTimeDict[key]
+        totalTimeElapsed += elapsedTimeDict[key]
+    #print timeEquallyOrLessCrowded
+    #print totalTimeElapsed
+    crowdednessPercentile =timeEquallyOrLessCrowded/totalTimeElapsed
+    
+    return crowdednessPercentile
 
 def detail(request, update_id):
     return HttpResponse("You're looking at update %s." % update_id)

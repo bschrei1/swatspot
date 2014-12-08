@@ -78,20 +78,24 @@ def createDeathEvents(allUpdates, paramSeconds):
     for update in allUpdates:
         if update.eventType != "swipe": #only create death events after swipes
             continue
-        if update.when.isoweekday==7||update.when.isoweekday == 6: #if Sunday or Saturday, Sharples closes at 8 pm
+        if update.when.isoweekday()==7 or update.when.isoweekday() == 6: #if Sunday or Saturday, Sharples closes at 8 pm
+            print "here"
             closingTime = datetime.datetime(update.when.year, update.when.month, update.when.day, 18, 30, 00) #entries are in miliary time
         else: #week day closes at 8:00
             closingTime = datetime.datetime(update.when.year, update.when.month, update.when.day, 20, 00, 00)
         timeTillClosing = (closingTime-update.when).total_seconds() #number of seconds between update and the closing time
+        
         if timeTillClosing > paramSeconds: #if not paramSeconds from closingTime create a death event
-            deathTime = datetime.datetime(update.when.year, update.when.month, update.when.day, update.when.hour, update.when.minute + paramSeconds/60, update.when.second +paramSeconds%60) # time of death is paramSeconds after swipe occured
+            deathTime = update.when+datetime.timedelta(seconds = paramSeconds) # time of death is paramSeconds after swipe occured
             newDeath = Update(when = deathTime, eventType = "swipeDeath") 
-            terminationsList.append(newDeath)
-    for swipeDeath in terminationsList:
+            deathsList.append(newDeath)#changed
+    
+    for swipeDeath in deathsList:
         allUpdates.append(swipeDeath)
-    allUpdates= allUpdates.order_by('when') #sort by oldest (position 0) to newest (position len(list)-1)
+    
+    allUpdates.sort(key=lambda x: x.when, reverse=False)#sort by oldest (position 0) to newest (position len(list)-1)
+    
     return allUpdates
-
 
 
 
@@ -109,11 +113,12 @@ def createElapsedTimeDict(allUpdates, paramSeconds, httpRequestTime):
                 elapsedTimeDict[iterativeLivingUpdates] = timeSincePreviousUpdate + elapsedTimeDict[iterativeLivingUpdates]
             else: #we have not seen this number of people in Sharples before
                 elapsedTimeDict[iterativeLivingUpdates] = timeSincePreviousUpdate
-            if update.eventType = "swipe":
+            if update.eventType == "swipe":
                 iterativeLivingUpdates += 1 #add 1 to iterativeLivingUpdates for swipe
-            elif update.eventType = "swipeDeath":
+            elif update.eventType == "swipeDeath":
                 iterativeLivingUpdates -= 1
             #for closing or httpRequest events we don't add to iterativeLivingUpdates
+            timeOfPreviousUpdates = update.when
     return elapsedTimeDict
 
 
