@@ -33,7 +33,7 @@ def students(request):
     paramSeconds = 2400 #40 mintutes
     allUpdates = Update.objects.all() #Django command to retrieve all Update events in its database
     allUpdates = allUpdates.order_by('-when') #sort newest to oldest
-    sharplesIsOpen = sharplesIsOpen2(allUpdates) #see if Sharples is currently open
+    sharplesIsOpen = sharplesIsOpenNow(allUpdates) #see if Sharples is currently open
     if not sharplesIsOpen:   #if sharples is closed
         
         percentile =0
@@ -54,6 +54,7 @@ def students(request):
         percentile = 100*computePercentile(numCurrRecentUpdates, elapsedTimeDict)
         
         percentileComplement = 1 - percentile
+	
     
     context = RequestContext(request,{'sharplesIsOpen': sharplesIsOpen, 'percentile': percentile,})
     template = loader.get_template('students/indexstudents.html')
@@ -61,10 +62,10 @@ def students(request):
 
 
 #Returns boolean whether Sharples is open (1=open, 0=closed)   
-def sharplesIsOpen2(allUpdates):
+def sharplesIsOpenNow(allUpdates):
     if allUpdates[0].eventType == "closing": #if the most recent event was a closing
         return False
-    #print "sharples is open line 35"
+    
     return True #otherwise Sharples is open
 
 
@@ -195,4 +196,12 @@ def opening(request):
 def closing(request):
     closeUpdate = Update(when=datetime.datetime.now(),eventType = "closing")
     closeUpdate.save()
+    latest_update_list = Update.objects.order_by('-when')[:15] 
+    template = loader.get_template('sharples/index.html')
+    context = RequestContext(request,{'latest_update_list': latest_update_list,})
+    return HttpResponse(template.render(context))
+
+
+
+
 
