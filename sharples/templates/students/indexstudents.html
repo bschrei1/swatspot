@@ -161,8 +161,8 @@
 	<div class="content-band">
     	<h1 style="margin-top: 20px; text-align: center; text-transform: uppercase;">Sharples Crowdedness Meter</h1>
 		<div class="column left">
-        	<div>
-            	<p style="text-align: center;"><a class="button" href="javascript:history.go(0)">Refresh</a></p>
+             <div>
+            	<!--<p style="text-align: center;"><a class="button" href="javascript:history.go(0)">Refresh</a></p>-->
             </div>
             {% if sharplesIsOpen %}
                 <h2 style="text-align: center;">Crowdedness percentile: {{percentile}}%</h2>
@@ -176,7 +176,7 @@
 						{% endif %}
     	</div>
     	<div class="column right">
-        	<p> This is a Sharples traffic meter measuring the crowdedness of Sharples in real time. It compares the current rate of meal swipes against historical data to compute a percentile for how busy Sharples is at the time you visit our site. This project was done as part of Ben Schreiber and Dan Hu's final project for Kevin Webb's Cloud Systems (CS91) course. We also thank Clark Ren for helping in the website's front end design</p>
+        	<p> The intention of this application is to provide students with the crowdedness level of Sharples in real time. It compares the current rate of meal swipes against historical data to compute a percentile for how busy Sharples is now. At the moment, we cannot interface with the system that Swarthmore uses to record meal swipe data, so we will use a Raspberry Pi computer attached to a button to serve as our data retrieval source. In other words, in order for this project to be successful we need you to help us by pressing the button (once) at the top ledge of Sharples when you come in, and NOT to press it when you leave.</p><p> This site was created as part of Ben Schreiber and Dan Hu's final project for Kevin Webb's Cloud Systems (CS91) course. We would like to thank Joel Cooper for providing us with necessary IT infrastructure, Lynn Grady and Linda McDougall for allowing us to conduct this project in Sharples and helping us setup, and to Kevin Webb for guiding us throughout the development phase. We also thank Clark Ren for helping in the website's front end design.</p>
         </div>
     </div>
     <div class="footer">
