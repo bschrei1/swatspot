@@ -10,7 +10,7 @@ comparison as soon as it became live data from student meal card swipes by the m
 (courtesy of Lynn Grady and Linda McDougall, co-heads of the Sharples dining staff). 
 
 
-Demo:
+Demo: 
 The website was run for two and a half days on an Amazon Web Service server running a Django web framework 
 and was able to obtain accurate results for a good part of the time. The most serious problems with the results were that
 students would sometimes press the button many times to see if it would respond. After leaving it in the dining hall for 
