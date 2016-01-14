@@ -24,7 +24,12 @@ def index(request):
 
 
 """This program computes the crowdedness percentile of Sharples based on the 
-time of an HTTP request to our site. It looks through all the historical data and sees which swipes occured within a parametrized amount of time, paramSeconds, which is defined above. It then looks through the database and computes the amount of elapsed time such that there were fewer or as many swipes within this amount of time (i.e. computes the amount of time such that there were fewer or as many people in the building). Maybe we can extend the application beyond Sharples, but for the sake of simplicity, I write comments as if it only applies to Sharples.
+time of an HTTP request to our site. It looks through all the historical data and sees which swipes 
+occured within a parametrized amount of time, paramSeconds, which is defined above. 
+It then looks through the database and computes the amount of elapsed time such that there were fewer or as many 
+swipes within this amount of time (i.e. computes the amount of time such that there were fewer or as many people in the 
+building). Maybe we can extend the application beyond Sharples, but for the sake of simplicity, I write comments 
+as if it only applies to Sharples.
 
 Ben Schreiber 12/6/14
 """
